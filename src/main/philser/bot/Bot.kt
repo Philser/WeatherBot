@@ -1,20 +1,16 @@
-package bot
+package philser.bot
 
-import api.BotApi
-import api.model.Update
+import philser.api.BotApi
+import philser.api.model.Update
 
-class Bot {
+class Bot(apiToken: String) {
 
-    lateinit var api: BotApi
-
-    constructor(apiToken: String) {
-        api = BotApi(apiToken)
-    }
+    var api: BotApi = BotApi(apiToken)
 
     fun runBot() {
         while (true) {
             // Poll for updates
-            var updates: List<Update> = pollForUpdates()
+            val updates: List<Update> = pollForUpdates()
 
             // Process updates
             handleUpdates(updates)
@@ -31,6 +27,6 @@ class Bot {
     }
 
     private fun handleUpdates(updates: List<Update>) {
-
+        throw NotImplementedError()
     }
 }

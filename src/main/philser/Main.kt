@@ -1,6 +1,6 @@
-package main
+package philser
 
-import bot.Bot
+import philser.bot.Bot
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
