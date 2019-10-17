@@ -4,7 +4,7 @@ import org.json.JSONObject
 
 class Wind(windObject: JSONObject) {
 
-    val speed = windObject["speed"] as Double
+    val speedMeterPerSecond = windObject["speed"] as Double
     val degrees = windObject["deg"] as Int
     val direction = getWindDirection(degrees)
 

@@ -1,6 +1,7 @@
 package philser.api.weather
 
 import philser.api.weather.model.CurrentWeather
+import philser.api.weather.model.Location
 
 class WeatherApi(apiToken: String) {
 
@@ -8,8 +9,8 @@ class WeatherApi(apiToken: String) {
     private val API_TOKEN = apiToken
 
     // TODO: Allow arbitrary (existing) locations
-    fun getCurrentWeather(): CurrentWeather {
-        val url = BASE_URL + "weather?q=Dresden,de&appid=$API_TOKEN"
+    fun getCurrentWeather(location: Location): CurrentWeather {
+        val url = BASE_URL + "weather?q=${location.city},${location.countryISOCode}&appid=$API_TOKEN"
         val response = khttp.get(url).jsonObject
 
         return CurrentWeather(response)

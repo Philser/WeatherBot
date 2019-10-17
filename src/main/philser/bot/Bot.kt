@@ -7,13 +7,15 @@ import philser.api.telegram.model.Update
 import philser.api.telegram.model.User
 import philser.api.weather.WeatherApi
 import philser.api.weather.model.CurrentWeather
+import philser.api.weather.model.Location
 
 class Bot(apiToken: String, weatherApiToken: String) {
 
-    var api = BotApi(apiToken)
-    var weatherApi = WeatherApi(weatherApiToken)
-    var lastProcessedUpdate: Int = 0
-    val subscribedUsers: HashMap<User, Chat> = HashMap()
+    private var api = BotApi(apiToken)
+    private var weatherApi = WeatherApi(weatherApiToken)
+    private var lastProcessedUpdate: Int = 0
+    private val subscribedUserIDs: HashMap<Int, Chat> = HashMap()
+    private val subscribedUserLocations: HashMap<Int, Location> = HashMap()
 
     // TODO: Add some kind of time limit before next update
     fun runBot() {
@@ -24,19 +26,28 @@ class Bot(apiToken: String, weatherApiToken: String) {
             // Process updates
             handleUpdates(updates)
 
-            // Fetch weather data
-            val weather = weatherApi.getCurrentWeather()
-
-            // Output weather data
-            for (user in subscribedUsers) {
-                sendWeatherUpdate(user.value, weather)
+            // Fetch weather data for every location users have subscribed to
+            for (location in subscribedUserLocations.values) {
+                val weather = weatherApi.getCurrentWeather(location)
+                // Output weather data
+                for (user in subscribedUserIDs) {
+                    sendWeatherUpdate(user.value, weather)
+                }
             }
-
+            break
         }
     }
 
     private fun sendWeatherUpdate(chat: Chat, weather: CurrentWeather) {
-        api.sendMessage(chat.id, "It's currently ${weather.temperature} Kelvin in Dresden")
+        val weatherText = "##### Today's weather report #####\n" +
+                "-------- Currently:\n" +
+                "Weather: ${weather.weather.description}\n" +
+                "Temperature: ${weather.temperature}\n" +
+                "Wind: ${weather.wind.speedMeterPerSecond} m/s in ${weather.wind.direction}\n" +
+                "Visibility: ${weather.visibilityMeters}m\n" +
+                "\n" +
+                "-------- Today's forecast:"
+        api.sendMessage(chat.id, weatherText)
     }
 
     private fun pollForUpdates(): List<Update> {
@@ -83,18 +94,18 @@ class Bot(apiToken: String, weatherApiToken: String) {
     }
 
     private fun unsubscribeUser(user: User): String {
-        if (!subscribedUsers.containsKey(user))
+        if (!subscribedUserIDs.containsKey(user.id))
             return "You haven't even subscribed yet!"
 
-        subscribedUsers.remove(user)
+        subscribedUserIDs.remove(user.id)
         return "You have successfully unsubscribed from Dresden's best weather bot. Sad to see you leave!"
     }
 
     private fun subscribeUser(user: User, chat: Chat): String {
-        if (subscribedUsers.containsKey(user))
+        if (subscribedUserIDs.containsKey(user.id))
             return "You are already subscribed, silly!"
 
-        subscribedUsers[user] = chat
+        subscribedUserIDs[user.id] = chat
         return "You have successfully subscribed to Dresden's best weather bot. Welcome aboard!"
     }
 }
