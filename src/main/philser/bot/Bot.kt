@@ -6,14 +6,16 @@ import philser.api.telegram.model.Message
 import philser.api.telegram.model.Update
 import philser.api.telegram.model.User
 import philser.api.weather.WeatherApi
+import philser.api.weather.model.CurrentWeather
 
 class Bot(apiToken: String, weatherApiToken: String) {
 
     var api = BotApi(apiToken)
     var weatherApi = WeatherApi(weatherApiToken)
     var lastProcessedUpdate: Int = 0
-    val subscribedUsers: HashMap<Int, User> = HashMap()
+    val subscribedUsers: HashMap<User, Chat> = HashMap()
 
+    // TODO: Add some kind of time limit before next update
     fun runBot() {
         while (true) {
             // Poll for updates
@@ -26,8 +28,15 @@ class Bot(apiToken: String, weatherApiToken: String) {
             val weather = weatherApi.getCurrentWeather()
 
             // Output weather data
+            for (user in subscribedUsers) {
+                sendWeatherUpdate(user.value, weather)
+            }
 
         }
+    }
+
+    private fun sendWeatherUpdate(chat: Chat, weather: CurrentWeather) {
+        api.sendMessage(chat.id, "It's currently ${weather.temperature} Kelvin in Dresden")
     }
 
     private fun pollForUpdates(): List<Update> {
@@ -58,7 +67,7 @@ class Bot(apiToken: String, weatherApiToken: String) {
     private fun handleMessage(message: Message) {
         when(message.text) {
             "/start" -> {
-                sendMessage(message.chat, subscribeUser(message.user))
+                sendMessage(message.chat, subscribeUser(message.user, message.chat))
             }
             "/stop" -> {
                 sendMessage(message.chat, unsubscribeUser(message.user))
@@ -69,23 +78,23 @@ class Bot(apiToken: String, weatherApiToken: String) {
         }
     }
 
-    private fun sendMessage(chat: Chat, message: String) {
-        val response = api.sendMessage(chat.id, message)
+    private fun sendMessage(chat: Chat, message: String): Message {
+        return api.sendMessage(chat.id, message)
     }
 
     private fun unsubscribeUser(user: User): String {
-        if (!subscribedUsers.containsKey(user.id))
+        if (!subscribedUsers.containsKey(user))
             return "You haven't even subscribed yet!"
 
-        subscribedUsers.remove(user.id)
+        subscribedUsers.remove(user)
         return "You have successfully unsubscribed from Dresden's best weather bot. Sad to see you leave!"
     }
 
-    private fun subscribeUser(user: User): String {
-        if (subscribedUsers.containsKey(user.id))
+    private fun subscribeUser(user: User, chat: Chat): String {
+        if (subscribedUsers.containsKey(user))
             return "You are already subscribed, silly!"
 
-        subscribedUsers[user.id] = user
+        subscribedUsers[user] = chat
         return "You have successfully subscribed to Dresden's best weather bot. Welcome aboard!"
     }
 }

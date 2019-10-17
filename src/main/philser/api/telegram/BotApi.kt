@@ -19,6 +19,12 @@ class BotApi(apiToken: String) {
         return updates.map { Update(it as JSONObject) }
     }
 
+    fun sendMessage(username: String, message: String): Message {
+        val url = BASE_URL + "sendMessage"
+        val payload = JSONObject(mapOf("chat_id" to "@$username", "text" to message))
+        val response = sendPost(url, payload)
+        return Message(response["result"] as JSONObject)
+    }
     // TODO: Include Markdown and HTML parsing modes
     fun sendMessage(chatId: Int, message: String): Message {
         val url = BASE_URL + "sendMessage"
