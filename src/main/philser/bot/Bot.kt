@@ -1,14 +1,16 @@
 package philser.bot
 
-import philser.api.BotApi
-import philser.api.model.Chat
-import philser.api.model.Message
-import philser.api.model.Update
-import philser.api.model.User
+import philser.api.telegram.BotApi
+import philser.api.telegram.model.Chat
+import philser.api.telegram.model.Message
+import philser.api.telegram.model.Update
+import philser.api.telegram.model.User
+import philser.api.weather.WeatherApi
 
-class Bot(apiToken: String) {
+class Bot(apiToken: String, weatherApiToken: String) {
 
-    var api: BotApi = BotApi(apiToken)
+    var api = BotApi(apiToken)
+    var weatherApi = WeatherApi(weatherApiToken)
     var lastProcessedUpdate: Int = 0
     val subscribedUsers: HashMap<Int, User> = HashMap()
 
@@ -21,7 +23,7 @@ class Bot(apiToken: String) {
             handleUpdates(updates)
 
             // Fetch weather data
-            
+            val weather = weatherApi.getCurrentWeather()
 
             // Output weather data
 

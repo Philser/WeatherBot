@@ -1,4 +1,4 @@
-package philser.api.model
+package philser.api.telegram.model
 
 import org.json.JSONObject
 

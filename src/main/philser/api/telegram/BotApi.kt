@@ -1,15 +1,15 @@
-package philser.api
+package philser.api.telegram
 
-import philser.api.model.Update
+import philser.api.telegram.model.Update
 import khttp.get
 import khttp.post
 import org.json.JSONArray
 import org.json.JSONObject
-import philser.api.model.Message
+import philser.api.telegram.model.Message
 
 class BotApi(apiToken: String) {
 
-    val BASE_URL = "https://api.telegram.org/bot$apiToken/"
+    private val BASE_URL = "https://api.telegram.org/bot$apiToken/"
 
     fun getUpdates(): List<Update> {
         val url = BASE_URL + "getUpdates"
