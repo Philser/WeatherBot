@@ -9,6 +9,8 @@ import philser.api.model.User
 class Bot(apiToken: String) {
 
     var api: BotApi = BotApi(apiToken)
+    var lastProcessedUpdate: Int = 0
+    val subscribedUsers: HashMap<Int, User> = HashMap()
 
     fun runBot() {
         while (true) {
@@ -18,8 +20,9 @@ class Bot(apiToken: String) {
             // Process updates
             handleUpdates(updates)
 
-            // Allow subscriptions
             // Fetch weather data
+            
+
             // Output weather data
 
         }
@@ -31,22 +34,32 @@ class Bot(apiToken: String) {
 
     // TODO: Handle other events?
     private fun handleUpdates(updates: List<Update>) {
-        for (update in updates) {
-            if (update.message != null)
-                handleMessage(update.message)
+
+        for (update in updates.filter { it.updateId > lastProcessedUpdate }) {
+            try {
+                if (update.message != null)
+                    handleMessage(update.message)
+
+                updateProcessedUpdates(update)
+            } catch (e: Exception) {
+                // TODO: Logging
+                // TODO: Error handling
+            }
         }
     }
 
-    // TODO: Keep track of processed updates
+    private fun updateProcessedUpdates(update: Update) {
+        // TODO: Persistence
+        lastProcessedUpdate = update.updateId
+    }
+
     private fun handleMessage(message: Message) {
         when(message.text) {
             "/start" -> {
-                subscribeUser(message.user)
-                sendMessage(message.chat, "You have successfully subscribed to Dresden's best weather bot. Welcome aboard!")
+                sendMessage(message.chat, subscribeUser(message.user))
             }
             "/stop" -> {
-                unsubscribeUser(message.user)
-                sendMessage(message.chat, "You have successfully unsubscribed from Dresden's best weather bot. Sad to see you leave!")
+                sendMessage(message.chat, unsubscribeUser(message.user))
             }
             else -> {
                 sendMessage(message.chat, "I do not understand this command.")
@@ -58,11 +71,19 @@ class Bot(apiToken: String) {
         val response = api.sendMessage(chat.id, message)
     }
 
-    private fun unsubscribeUser(user: User) {
+    private fun unsubscribeUser(user: User): String {
+        if (!subscribedUsers.containsKey(user.id))
+            return "You haven't even subscribed yet!"
 
+        subscribedUsers.remove(user.id)
+        return "You have successfully unsubscribed from Dresden's best weather bot. Sad to see you leave!"
     }
 
-    private fun subscribeUser(user: User) {
+    private fun subscribeUser(user: User): String {
+        if (subscribedUsers.containsKey(user.id))
+            return "You are already subscribed, silly!"
 
+        subscribedUsers[user.id] = user
+        return "You have successfully subscribed to Dresden's best weather bot. Welcome aboard!"
     }
 }
