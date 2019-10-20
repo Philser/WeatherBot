@@ -2,6 +2,7 @@ package philser.api.weather.model
 
 import org.json.JSONArray
 import org.json.JSONObject
+import philser.api.weather.WeatherApi
 
 class CurrentWeather(weatherObject: JSONObject) {
 
@@ -11,4 +12,5 @@ class CurrentWeather(weatherObject: JSONObject) {
     val cloudiness: Int = (weatherObject["clouds"] as JSONObject)["all"] as Int
     val visibilityMeters: Int = weatherObject["visibility"] as Int
     val wind: Wind = Wind(weatherObject["wind"] as JSONObject)
+
 }

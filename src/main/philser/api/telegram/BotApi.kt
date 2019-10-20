@@ -3,6 +3,7 @@ package philser.api.telegram
 import philser.api.telegram.model.Update
 import khttp.get
 import khttp.post
+import main.philser.api.telegram.model.ReplyKeyboardMarkup
 import org.json.JSONArray
 import org.json.JSONObject
 import philser.api.telegram.model.Message
@@ -19,17 +20,13 @@ class BotApi(apiToken: String) {
         return updates.map { Update(it as JSONObject) }
     }
 
-    fun sendMessage(username: String, message: String): Message {
-        val url = BASE_URL + "sendMessage"
-        val payload = JSONObject(mapOf("chat_id" to "@$username", "text" to message))
-        val response = sendPost(url, payload)
-        return Message(response["result"] as JSONObject)
-    }
     // TODO: Include Markdown and HTML parsing modes
-    fun sendMessage(chatId: Int, message: String): Message {
+    fun sendMessage(chatId: Int, message: String, replyMarkup: ReplyKeyboardMarkup? = null): Message {
         val url = BASE_URL + "sendMessage"
-        val payload = JSONObject(mapOf("chat_id" to chatId, "text" to message))
-        val response = sendPost(url, payload)
+        var payload = mutableMapOf("chat_id" to chatId, "text" to message)
+        if (replyMarkup != null) payload["reply_markup"] = replyMarkup
+
+        val response = sendPost(url, JSONObject(payload))
         return Message(response["result"] as JSONObject)
     }
 

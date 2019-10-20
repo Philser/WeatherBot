@@ -10,7 +10,7 @@ class WeatherApi(apiToken: String) {
 
     // TODO: Allow arbitrary (existing) locations
     fun getCurrentWeather(location: Location): CurrentWeather {
-        val url = BASE_URL + "weather?q=${location.city},${location.countryISOCode}&appid=$API_TOKEN"
+        val url = BASE_URL + "weather?q=${location.city},${location.countryISOCode}&appid=$API_TOKEN&units=metric"
         val response = khttp.get(url).jsonObject
 
         return CurrentWeather(response)
