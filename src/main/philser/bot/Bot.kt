@@ -1,7 +1,8 @@
-package philser.bot
+package main.philser.bot
 
 import main.philser.api.telegram.model.KeyboardButton
 import main.philser.api.telegram.model.ReplyKeyboardMarkup
+import main.philser.bot.db.DBHandler
 import philser.api.telegram.BotApi
 import philser.api.telegram.model.Chat
 import philser.api.telegram.model.Message
@@ -10,15 +11,14 @@ import philser.api.telegram.model.User
 import philser.api.weather.WeatherApi
 import philser.api.weather.model.CurrentWeather
 import philser.api.weather.model.Location
+import java.time.LocalDateTime
+import java.time.ZoneId
 
-class Bot(apiToken: String, weatherApiToken: String) {
+class Bot(apiToken: String, weatherApiToken: String, dbHandler: DBHandler) {
 
     private var api = BotApi(apiToken)
     private var weatherApi = WeatherApi(weatherApiToken)
-    private var lastProcessedUpdate: Int = 0
-    private val subscribedUserIDs: HashMap<Int, Chat> = HashMap()
-    private val subscribedUserLocations: HashMap<Int, MutableList<Location>> = HashMap()
-    private val relevantLocations: MutableSet<Location> = mutableSetOf()
+    private val dbHandler = dbHandler
 
     // TODO: Add some kind of time limit before next update
     fun runBot() {
@@ -30,10 +30,10 @@ class Bot(apiToken: String, weatherApiToken: String) {
             handleUpdates(updates)
 
             // Fetch weather data for every location users have subscribed to
-            for (location in relevantLocations) {
-                val weather = weatherApi.getCurrentWeather(location)
+            for (location in dbHandler.getSubscribedLocations()) {
+                val weather = weatherApi.getCurrentWeather(Location.AVAILABLE_LOCATIONS[location]!!)
                 // Output weather data
-                for (user in subscribedUserIDs) {
+                for (user in dbHandler.getSubscriptions()) {
                     sendWeatherUpdate(user.value, weather)
                 }
             }
@@ -41,7 +41,7 @@ class Bot(apiToken: String, weatherApiToken: String) {
     }
 
     // TODO: Do not hardcode units
-    private fun sendWeatherUpdate(chat: Chat, weather: CurrentWeather) {
+    private fun sendWeatherUpdate(chatID: Int, weather: CurrentWeather) {
         val weatherText = "##### Today's weather report #####\n" +
                 "-------- Currently:\n" +
                 "Weather: ${weather.weather.description}\n" +
@@ -50,7 +50,7 @@ class Bot(apiToken: String, weatherApiToken: String) {
                 "Visibility: ${weather.visibilityMeters}m\n" +
                 "\n" +
                 "-------- Today's forecast:"
-        api.sendMessage(chat.id, weatherText)
+        api.sendMessage(chatID, weatherText)
     }
 
     private fun pollForUpdates(): List<Update> {
@@ -59,14 +59,21 @@ class Bot(apiToken: String, weatherApiToken: String) {
 
     // TODO: Handle other events?
     private fun handleUpdates(updates: List<Update>) {
+        val lastProcessedUpdate = dbHandler.getLastReceivedUpdateIDAndTime() ?: Pair<Int, Int>(0, 0) // Null if table is empty, set time to 0
+        var updatesToProcess = updates
+        val beforeSevenDaysTime = LocalDateTime.now().minusDays(6) // After seven days the update IDs become random again
 
-        for (update in updates.filter { it.updateId > lastProcessedUpdate }) {
+        if(lastProcessedUpdate.second >= beforeSevenDaysTime.atZone(ZoneId.systemDefault()).toEpochSecond()) // Time has not expired, we still can filter by updateIDs
+            updatesToProcess = updatesToProcess.filter { it.updateId > lastProcessedUpdate.first }
+
+        for (update in updatesToProcess) {
             try {
                 if (update.message != null)
                     handleMessage(update.message)
 
                 updateProcessedUpdates(update)
             } catch (e: Exception) {
+                throw e
                 // TODO: Logging
                 // TODO: Error handling
             }
@@ -74,8 +81,7 @@ class Bot(apiToken: String, weatherApiToken: String) {
     }
 
     private fun updateProcessedUpdates(update: Update) {
-        // TODO: Persistence
-        lastProcessedUpdate = update.updateId
+        dbHandler.updateLastReceivedUpdate(update.updateId, System.currentTimeMillis() / 1000L)
     }
 
     private fun handleMessage(message: Message) {
@@ -88,8 +94,8 @@ class Bot(apiToken: String, weatherApiToken: String) {
                 sendMessage(message.chat, unsubscribeUser(message.user))
             }
             in Location.AVAILABLE_LOCATIONS.keys -> {
-                if(!subscribedUserIDs.containsKey(message.user.id))
-                    sendMessage(message.chat, subscribeUser(message.user, message.chat)) // Subscribe user if they are new
+                if(!dbHandler.getSubscriptions().containsKey(message.user.id)) // Subscribe user if they are new
+                    sendMessage(message.chat, subscribeUser(message.user, message.chat))
                 sendMessage(message.chat, addUserLocation(message.user, message.text.toString()))
             }
             else -> {
@@ -99,16 +105,14 @@ class Bot(apiToken: String, weatherApiToken: String) {
     }
 
     private fun addUserLocation(user: User, locationName: String): String {
-        if (!subscribedUserLocations.containsKey(user.id))
-            subscribedUserLocations[user.id] = mutableListOf()
-
         val location = Location.AVAILABLE_LOCATIONS.getValue(locationName)
-        relevantLocations.add(location) // Add location to set of locations to get weather data for
 
-        if (subscribedUserLocations[user.id]!!.contains(location))
-            return "You are already subscribed to weather information for $location"
+        dbHandler.addSubscribedLocation(user.id, location.city)
+        val subscribedLocations = dbHandler.getSubscribedLocationsForUser(user.id)
+        if (subscribedLocations.contains(location.city))
+            return "You are already subscribed to weather information for ${location.city}"
 
-        subscribedUserLocations[user.id]!!.add(location)
+        dbHandler.addSubscribedLocation(user.id, location.city)
         return "You will now receive weather information for $location"
     }
 
@@ -131,18 +135,23 @@ class Bot(apiToken: String, weatherApiToken: String) {
     }
 
     private fun unsubscribeUser(user: User): String {
-        if (!subscribedUserIDs.containsKey(user.id))
+        if (!dbHandler.getUsers().any { it.id == user.id })
             return "You haven't even subscribed yet!"
 
-        subscribedUserIDs.remove(user.id)
+        val chatId = dbHandler.getSubscriptionByUserID(user.id).second
+        dbHandler.deleteAllSubscribedLocationsForUser(user.id)
+        dbHandler.deleteSubscription(user.id, chatId)
+        dbHandler.deleteChat(chatId)
+        dbHandler.deleteUser(user.id)
         return "You have successfully unsubscribed from Dresden's best weather bot. Sad to see you leave!"
     }
 
     private fun subscribeUser(user: User, chat: Chat): String {
-        if (subscribedUserIDs.containsKey(user.id))
+        if (dbHandler.getUsers().any { it.id == user.id })
             return "You are already subscribed, silly!"
 
-        subscribedUserIDs[user.id] = chat
+        dbHandler.addUser(user)
+        dbHandler.addSubscription(user.id, chat.id)
         return "You have successfully subscribed to Dresden's best weather bot. Welcome aboard!"
     }
 }
