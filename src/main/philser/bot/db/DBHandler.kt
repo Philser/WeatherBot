@@ -9,8 +9,8 @@ interface DBHandler {
     fun addChat(chat: Chat)
     fun addSubscription(userID: Int, chatID: Int)
     fun addSubscribedLocation(userID: Int, city: String)
-    fun upsertLastWeatherUpdateTime(userID: Int, time: Long)
-    fun updateLastReceivedUpdate(updateID: Int, time: Long)
+    fun upsertLastWeatherUpdateTime(userID: Int, unixTimestamp: Long)
+    fun updateLastReceivedUpdate(updateID: Int, unixTimestamp: Long)
 
     fun getUsers(): List<User>
     fun getChats(): List<Chat>
@@ -22,10 +22,10 @@ interface DBHandler {
     fun getLastWeatherUpdateTimeForUser(userID: Int): Int
     fun getLastReceivedUpdateIDAndTime(): Pair<Int, Int>?
 
-    fun deleteUser(userId: Int)
-    fun deleteChat(chatId: Int)
+    fun deleteUser(userID: Int)
+    fun deleteChat(chatID: Int)
     fun deleteSubscription(userID: Int, chatID: Int)
-    fun deleteSubscribedLocation(userID: Int, city: String)
+    fun deleteSubscribedLocation(userID: Int, location: String)
     fun deleteAllSubscribedLocationsForUser(userID: Int)
     fun deleteLastWeatherUpdateTimeForUser(userID: Int)
 }

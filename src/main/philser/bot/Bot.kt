@@ -14,11 +14,10 @@ import philser.api.weather.model.Location
 import java.time.LocalDateTime
 import java.time.ZoneId
 
-class Bot(apiToken: String, weatherApiToken: String, dbHandler: DBHandler) {
+class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHandler) {
 
     private var api = BotApi(apiToken)
     private var weatherApi = WeatherApi(weatherApiToken)
-    private val dbHandler = dbHandler
 
     // TODO: Add some kind of time limit before next update
     fun runBot() {
@@ -119,7 +118,7 @@ class Bot(apiToken: String, weatherApiToken: String, dbHandler: DBHandler) {
     private fun startLocationChoiceDialog(message: Message) {
         val buttons: MutableList<Array<KeyboardButton>> = mutableListOf()
         for (availableLocation in Location.AVAILABLE_LOCATIONS) {
-            var buttonRow = Array(1) { KeyboardButton(availableLocation.key) }
+            val buttonRow = Array(1) { KeyboardButton(availableLocation.key) }
             buttons.add(buttonRow)
         }
 
@@ -147,7 +146,7 @@ class Bot(apiToken: String, weatherApiToken: String, dbHandler: DBHandler) {
     }
 
     private fun subscribeUser(user: User, chat: Chat): String {
-        if (dbHandler.getUsers().any { it.id == user.id })
+        if (dbHandler.getSubscriptions().any { it.key == user.id })
             return "You are already subscribed, silly!"
 
         dbHandler.addUser(user)

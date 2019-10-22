@@ -5,9 +5,11 @@ import philser.api.telegram.model.Chat
 import philser.api.telegram.model.User
 import java.sql.DriverManager
 import java.sql.ResultSet
+import java.sql.SQLException
+import java.sql.Statement
 
 
-class SQLiteDBHandler: DBHandler {
+class SQLiteDBHandler(dbName: String) : DBHandler {
 
     private val DB_CONNECTION_NAME: String
 
@@ -18,7 +20,8 @@ class SQLiteDBHandler: DBHandler {
     private val LAST_WEATHER_UPDATE_TIME_TABLE_NAME = "LAST_WEATHER_UPDATE_TIME"
     private val LAST_RECEIVED_UPDATE_MESSAGE_TABLE_NAME = "LAST_RECEIVED_UPDATE"
 
-    constructor(dbName: String) {
+    init {
+        // Load JDBC driver
         DB_CONNECTION_NAME = "jdbc:sqlite:$dbName.db"
         try {
             Class.forName("org.sqlite.JDBC") // Load driver
@@ -26,7 +29,6 @@ class SQLiteDBHandler: DBHandler {
             System.err.println("Error loading JDBC driver: " + e.message)
             System.exit(0)
         }
-
     }
 
     fun createMissingTables() {
@@ -89,19 +91,6 @@ class SQLiteDBHandler: DBHandler {
         executeUpdate(query)
     }
 
-    private fun executeQuery(query: String): ResultSet {
-        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
-
-        val stmt = conn.createStatement()
-
-        val resultSet = stmt.executeQuery(query)
-
-        stmt.close()
-        conn.close()
-
-        return resultSet
-    }
-
     private fun executeUpdate(query: String) {
         val c = DriverManager.getConnection(DB_CONNECTION_NAME)
 
@@ -152,121 +141,178 @@ class SQLiteDBHandler: DBHandler {
     }
 
     override fun getUsers(): List<User> {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT * FROM $USER_TABLE_NAME"
-        val results = executeQuery(query)
+        try {
+            val results = stmt.executeQuery(query)
+            val users: MutableList<User> = mutableListOf()
+            while(results.next()) {
+                val id = results.getInt("ID")
+                val isBot = results.getBoolean("IS_BOT")
+                val userName = results.getString("USER_NAME")
+                users.add(User(id, isBot, userName))
+            }
 
-        val users: MutableList<User> = mutableListOf()
-        while(results.next()) {
-            val id = results.getInt("ID")
-            val isBot = results.getBoolean("IS_BOT")
-            val userName = results.getString("USER_NAME")
-            users.add(User(id, isBot, userName))
+            return users
+        } finally {
+            conn.close()
+            stmt.close()
         }
-
-        return users
     }
 
     override fun getChats(): List<Chat> {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT ID, IS_BOT, USER_NAME FROM $CHAT_TABLE_NAME;"
-        val results = executeQuery(query)
+        try {
+            val results = stmt.executeQuery(query)
+            val chats: MutableList<Chat> = mutableListOf()
+            while(results.next()) {
+                val id = results.getInt("ID")
+                val title = results.getString("TITLE")
+                val firstName = results.getString("FIRST_NAME")
+                val lastName = results.getString("LAST_NAME")
+                chats.add(Chat(id, title, firstName, lastName))
+            }
 
-        val chats: MutableList<Chat> = mutableListOf()
-        while(results.next()) {
-            val id = results.getInt("ID")
-            val title = results.getString("TITLE")
-            val firstName = results.getString("FIRST_NAME")
-            val lastName = results.getString("LAST_NAME")
-            chats.add(Chat(id, title, firstName, lastName))
+            return chats
+        } finally {
+            conn.close()
+            stmt.close()
         }
-
-        return chats
     }
 
     override fun getSubscriptions(): Map<Int, Int> {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT USER_ID, CHAT_ID FROM $SUBSCRIPTION_TABLE_NAME"
-        val results = executeQuery(query)
+        try {
+            val results = stmt.executeQuery(query)
+            val subscriptions: HashMap<Int, Int> = HashMap()
+            while(results.next()) {
+                val userId = results.getInt("USER_ID")
+                val chatId = results.getInt("CHAT_ID")
+                subscriptions[userId] = chatId
+            }
 
-        val subscriptions: HashMap<Int, Int> = HashMap()
-        while(results.next()) {
-            val userId = results.getInt("USER_ID")
-            val chatId = results.getInt("CHAT_ID")
-            subscriptions[userId] = chatId
+            return subscriptions
+        } finally {
+            conn.close()
+            stmt.close()
         }
-
-        return subscriptions
     }
 
     override fun getSubscriptionByUserID(userID: Int): Pair<Int, Int> {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT USER_ID, CHAT_ID FROM $SUBSCRIPTION_TABLE_NAME WHERE USER_ID = $userID"
-        val results = executeQuery(query)
-
-        while(results.next()) {
-            val userId = results.getInt("USER_ID")
-            val chatId = results.getInt("CHAT_ID")
-            return Pair(userId, chatId)
+        try {
+            val results = stmt.executeQuery(query)
+            while(results.next()) {
+                val userId = results.getInt("USER_ID")
+                val chatId = results.getInt("CHAT_ID")
+                return Pair(userId, chatId)
+            }
+            throw Exception("Subscription does not exist")
+        } finally {
+            conn.close()
+            stmt.close()
         }
-        throw Exception("Subscription does not exist")
     }
 
     override fun getSubscribedLocationsPerUsers(): Map<Int, List<String>> {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT USER_ID, CITY FROM $SUBSRIBED_LOCATIONS_TABLE_NAME"
-        val results = executeQuery(query)
+        try {
+            val results = stmt.executeQuery(query)
+            val subscribedLocations: HashMap<Int, MutableList<String>> = HashMap()
+            while(results.next()) {
+                val userId = results.getInt("USER_ID")
+                val city = results.getString("CITY")
+                if(!subscribedLocations.containsKey(userId))
+                    subscribedLocations[userId] = mutableListOf()
+                subscribedLocations[userId]!!.add(city)
+            }
 
-        val subscribedLocations: HashMap<Int, MutableList<String>> = HashMap()
-        while(results.next()) {
-            val userId = results.getInt("USER_ID")
-            val city = results.getString("CITY")
-            if(!subscribedLocations.containsKey(userId))
-                subscribedLocations[userId] = mutableListOf()
-            subscribedLocations[userId]!!.add(city)
+            return subscribedLocations
+        } finally {
+            conn.close()
+            stmt.close()
         }
-
-        return subscribedLocations
     }
 
     override fun getSubscribedLocations(): List<String> {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT DISTINCT LOCATION FROM $SUBSRIBED_LOCATIONS_TABLE_NAME"
-        val results = executeQuery(query)
+        try {
+            val results = stmt.executeQuery(query)
+            val subscribedLocations: MutableList<String> = mutableListOf()
+            while(results.next()) {
+                val location = results.getString("LOCATION")
+                subscribedLocations.add(location)
+            }
 
-        val subscribedLocations: MutableList<String> = mutableListOf()
-        while(results.next()) {
-            val location = results.getString("LOCATION")
-            subscribedLocations.add(location)
+            return subscribedLocations
+        } finally {
+            conn.close()
+            stmt.close()
         }
-
-        return subscribedLocations
     }
 
     override fun getSubscribedLocationsForUser(userID: Int): List<String> {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT LOCATION FROM $SUBSRIBED_LOCATIONS_TABLE_NAME WHERE USER_ID = $userID"
-        val results = executeQuery(query)
+        try {
+            val results = stmt.executeQuery(query)
+            val locations = mutableListOf<String>()
+            while (results.next()) {
+                locations.add(results.getString("LOCATION"))
+            }
 
-        val locations = mutableListOf<String>()
-        while (results.next()) {
-            locations.add(results.getString("LOCATION"))
+            return locations
+        } finally {
+            conn.close()
+            stmt.close()
         }
-
-        return locations
     }
 
     override fun getLastReceivedUpdateIDAndTime(): Pair<Int, Int>? {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT UPDATE_ID, TIME FROM $LAST_RECEIVED_UPDATE_MESSAGE_TABLE_NAME ORDER BY TIME DESC LIMIT 1"
-        val result = executeQuery(query)
-        if(result.next()) {
-            val updateID = result.getInt("UPDATE_ID")
-            val time = result.getInt("TIME")
-            return Pair(updateID, time)
-        }
+        try {
+            val result = stmt.executeQuery(query)
+            if(result.next()) {
+                val updateID = result.getInt("UPDATE_ID")
+                val time = result.getInt("TIME")
+                return Pair(updateID, time)
+            }
 
-        return null
+            return null
+        } finally {
+            conn.close()
+            stmt.close()
+        }
     }
 
     override fun getLastWeatherUpdateTimeForUser(userID: Int): Int {
+        val conn = DriverManager.getConnection(DB_CONNECTION_NAME)
+        val stmt: Statement = conn.createStatement()
         val query = "SELECT TIME FROM $LAST_WEATHER_UPDATE_TIME_TABLE_NAME WHERE USER_ID = $userID"
-        val result = executeQuery(query)
-        if (result.next())
-            return result.getInt("TIME")
-        throw Exception("No entry for user ID $userID")
+        try {
+            val result = stmt.executeQuery(query)
+            if (result.next())
+                return result.getInt("TIME")
+            throw Exception("No entry for user ID $userID")
+        } finally {
+            conn.close()
+            stmt.close()
+        }
+
     }
 
     override fun deleteUser(userID: Int) {
