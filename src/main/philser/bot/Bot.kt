@@ -30,12 +30,22 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
 
             // Fetch weather data for every location users have subscribed to
             for (location in dbHandler.getSubscribedLocations()) {
-                val weather = weatherApi.getCurrentWeather(Location.AVAILABLE_LOCATIONS[location]!!)
+                val weather = weatherApi
+                        .getCurrentWeather(Location.AVAILABLE_LOCATIONS[location] ?: error("Location unknown"))
                 // Output weather data
                 for (user in dbHandler.getSubscriptions()) {
-                    sendWeatherUpdate(user.value, weather)
+                    handleWeatherUpdate(user, weather)
                 }
             }
+        }
+    }
+
+    private fun handleWeatherUpdate(user: Map.Entry<Int, Int>, weather: CurrentWeather) {
+        val lastUpdateTime = dbHandler.getLastWeatherUpdateTimeForUser(user.key)
+        val maxEpochForNewUpdate =  LocalDateTime.now().minusDays(1).atZone(ZoneId.systemDefault()).toEpochSecond()
+        if (lastUpdateTime <= maxEpochForNewUpdate) {
+            sendWeatherUpdate(user.value, weather)
+            dbHandler.upsertLastWeatherUpdateTime(user.key, this.getCurrentEpoch())
         }
     }
 
@@ -76,7 +86,11 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     }
 
     private fun updateProcessedUpdates(update: Update) {
-        dbHandler.updateLastReceivedUpdate(update.updateId, System.currentTimeMillis() / 1000L)
+        dbHandler.updateLastReceivedUpdate(update.updateId, getCurrentEpoch())
+    }
+
+    private fun getCurrentEpoch(): Long {
+        return System.currentTimeMillis() / 1000L
     }
 
     private fun handleMessage(message: Message) {

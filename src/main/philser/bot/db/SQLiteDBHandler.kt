@@ -307,7 +307,7 @@ class SQLiteDBHandler(dbName: String) : DBHandler {
             val result = stmt.executeQuery(query)
             if (result.next())
                 return result.getInt("TIME")
-            throw Exception("No entry for user ID $userID")
+            return 0
         } finally {
             conn.close()
             stmt.close()
