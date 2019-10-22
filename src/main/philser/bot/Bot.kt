@@ -43,12 +43,8 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     private fun sendWeatherUpdate(chatID: Int, weather: CurrentWeather) {
         val weatherText = "##### Today's weather report #####\n" +
                 "-------- Currently:\n" +
-                "Weather: ${weather.weather.description}\n" +
-                "Temperature: ${weather.temperature} °C\n" +
-                "Wind: ${weather.wind.speedMeterPerSecond} m/s in ${weather.wind.direction}\n" +
-                "Visibility: ${weather.visibilityMeters}m\n" +
-                "\n" +
-                "-------- Today's forecast:"
+                "${weather.getWeatherReportString()}\n"
+                // TODO "-------- Today's forecast:"
         api.sendMessage(chatID, weatherText)
     }
 
