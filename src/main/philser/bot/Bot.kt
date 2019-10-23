@@ -12,6 +12,7 @@ import philser.api.weather.WeatherApi
 import philser.api.weather.model.CurrentWeather
 import philser.api.weather.model.Location
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 
 class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHandler) {
@@ -34,24 +35,22 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
                         .getCurrentWeather(Location.AVAILABLE_LOCATIONS[location] ?: error("Location unknown"))
                 // Output weather data
                 for (user in dbHandler.getSubscriptions()) {
-                    handleWeatherUpdate(user, weather)
+                    sendAutoWeatherUpdateIfAllowed(user.key, user.value, weather)
                 }
             }
         }
     }
 
-    private fun handleWeatherUpdate(user: Map.Entry<Int, Int>, weather: CurrentWeather) {
-        val lastUpdateTime = dbHandler.getLastWeatherUpdateTimeForUser(user.key)
-        val maxEpochForNewUpdate =  LocalDateTime.now().minusDays(1).atZone(ZoneId.systemDefault()).toEpochSecond()
-        if (lastUpdateTime <= maxEpochForNewUpdate) {
-            sendWeatherUpdate(user.value, weather)
-            dbHandler.upsertLastWeatherUpdateTime(user.key, this.getCurrentEpoch())
+    private fun sendAutoWeatherUpdateIfAllowed(userID: Int, chatID: Int, weather: CurrentWeather) {
+        val updateTime = LocalTime.of(7, 0)
+        if (LocalTime.now() == updateTime) {
+            sendWeatherUpdate(chatID, weather)
         }
     }
 
     // TODO: Do not hardcode units
     private fun sendWeatherUpdate(chatID: Int, weather: CurrentWeather) {
-        val weatherText = "##### Today's weather report #####\n" +
+        val weatherText = "##### Today's weather report for ${weather.cityName} #####\n" +
                 "-------- Currently:\n" +
                 "${weather.getWeatherReportString()}\n"
                 // TODO "-------- Today's forecast:"
@@ -101,6 +100,14 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
             "/stop" -> {
                 sendMessage(message.chat, unsubscribeUser(message.user))
             }
+            "weather" -> {
+                for (location in dbHandler.getSubscribedLocationsForUser(message.user.id)) {
+                    val weather = weatherApi
+                            .getCurrentWeather(Location.AVAILABLE_LOCATIONS[location] ?: error("Location unknown"))
+                    // Output weather data
+                    sendWeatherUpdate(message.chat.id, weather)
+                }
+            }
             in Location.AVAILABLE_LOCATIONS.keys -> {
                 if(!dbHandler.getSubscriptions().containsKey(message.user.id)) // Subscribe user if they are new
                     sendMessage(message.chat, subscribeUser(message.user, message.chat))
@@ -130,7 +137,7 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
             buttons.add(buttonRow)
         }
 
-        sendMessage(chat, "Please choose a location", ReplyKeyboardMarkup(buttons.toTypedArray()))
+        sendMessage(chat, "Please choose a location", ReplyKeyboardMarkup(buttons.toTypedArray(), true))
     }
 
     private fun sendMessage(chat: Chat, message: String, replyMarkup: ReplyKeyboardMarkup): Message {

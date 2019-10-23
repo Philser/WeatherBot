@@ -12,6 +12,7 @@ class CurrentWeather(weatherObject: JSONObject) {
     val cloudiness: Int = (weatherObject["clouds"] as JSONObject)["all"] as Int
     val visibilityMeters: Int? = if (weatherObject.has("visiblity")) weatherObject["visibility"] as Int else null
     val wind: Wind = Wind(weatherObject["wind"] as JSONObject)
+    val cityName: String = weatherObject["name"] as String
 
     fun getWeatherReportString(): String {
         return  "Weather: ${this.weather.description}\n" +
