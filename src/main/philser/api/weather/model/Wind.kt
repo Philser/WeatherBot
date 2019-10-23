@@ -4,11 +4,14 @@ import org.json.JSONObject
 
 class Wind(windObject: JSONObject) {
 
-    val speedMeterPerSecond = windObject["speed"] as Double
-    val degrees = windObject["deg"] as Int
+    // If the wind speed is a whole number, the API omits the decimal point
+    val speedMeterPerSecond = if (windObject["speed"].toString().contains('.'))
+        windObject["speed"] as Double else (windObject["speed"] as Int).toDouble()
+    private val degrees = if (windObject.has("deg")) windObject["deg"] as Int else null
     val direction = getWindDirection(degrees)
 
-    private fun getWindDirection(degrees: Int): String {
+    private fun getWindDirection(degrees: Int?): String? {
+        degrees ?: return null
         when (degrees) {
             in 0..11 -> return "N"
             in 11..33 -> return "NNE"

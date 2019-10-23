@@ -97,7 +97,6 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
         when(message.text) {
             "/start" -> {
                 sendMessage(message.chat, subscribeUser(message.user, message.chat))
-                startLocationChoiceDialog(message)
             }
             "/stop" -> {
                 sendMessage(message.chat, unsubscribeUser(message.user))
@@ -116,7 +115,6 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     private fun addUserLocation(user: User, locationName: String): String {
         val location = Location.AVAILABLE_LOCATIONS.getValue(locationName)
 
-        dbHandler.addSubscribedLocation(user.id, location.city)
         val subscribedLocations = dbHandler.getSubscribedLocationsForUser(user.id)
         if (subscribedLocations.contains(location.city))
             return "You are already subscribed to weather information for ${location.city}"
@@ -125,14 +123,14 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
         return "You will now receive weather information for $location"
     }
 
-    private fun startLocationChoiceDialog(message: Message) {
+    private fun startLocationChoiceDialog(chat: Chat) {
         val buttons: MutableList<Array<KeyboardButton>> = mutableListOf()
         for (availableLocation in Location.AVAILABLE_LOCATIONS) {
             val buttonRow = Array(1) { KeyboardButton(availableLocation.key) }
             buttons.add(buttonRow)
         }
 
-        sendMessage(message.chat, "Please choose a location", ReplyKeyboardMarkup(buttons.toTypedArray()))
+        sendMessage(chat, "Please choose a location", ReplyKeyboardMarkup(buttons.toTypedArray()))
     }
 
     private fun sendMessage(chat: Chat, message: String, replyMarkup: ReplyKeyboardMarkup): Message {
@@ -156,11 +154,17 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     }
 
     private fun subscribeUser(user: User, chat: Chat): String {
-        if (dbHandler.getSubscriptions().any { it.key == user.id })
-            return "You are already subscribed, silly!"
+        if (dbHandler.getSubscriptions().any { it.key == user.id }) {
+            val locations = dbHandler.getSubscribedLocationsForUser(user.id)
+            val locationsString = locations.joinToString(", ")
+            return "You have already subscribed to the following locations: $locationsString\n" +
+                    "To subscribe to a new location, type its name in the chat.\n" +
+                    "Available locations: " + Location.AVAILABLE_LOCATIONS.keys.joinToString(", ")
+        }
 
         dbHandler.addUser(user)
         dbHandler.addSubscription(user.id, chat.id)
+        startLocationChoiceDialog(chat)
         return "You have successfully subscribed to Dresden's best weather bot. Welcome aboard!"
     }
 }
