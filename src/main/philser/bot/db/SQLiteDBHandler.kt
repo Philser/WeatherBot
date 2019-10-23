@@ -36,7 +36,6 @@ class SQLiteDBHandler(dbName: String) : DBHandler {
         createChatTable()
         createSubscriptionTable()
         createSubscribedLocationsTable()
-        createLastWeatherUpdateTable()
         createLastReceivedUpdateMessageTable()
     }
 
