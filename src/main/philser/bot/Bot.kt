@@ -10,8 +10,10 @@ import philser.api.telegram.model.Update
 import philser.api.telegram.model.User
 import philser.api.weather.WeatherApi
 import philser.api.weather.model.Forecast
-import philser.api.weather.model.Weather
+import philser.api.weather.model.CurrentWeather
+import philser.api.weather.model.FiveDaysForecast
 import philser.api.weather.model.Location
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
@@ -31,13 +33,27 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
 
             // Fetch weather data for every location users have subscribed to
             trySendDailyWeatherUpdate()
+            trySendDailyForecast()
         }
     }
 
     /**
+     * Send daily forecast if it is time to do so
+     */
+    private fun trySendDailyForecast() {
+        val updateTime = LocalTime.of(7, 0)
+        if (LocalTime.now() == updateTime) {
+            for (location in dbHandler.getSubscribedLocations()) {
+                // Output forecast
+                for (chatIdForUser in dbHandler.getSubscriptions()) {
+                    sendAllForecastsToUser(chatIdForUser.key, chatIdForUser.value, LocalDate.now())
+                }
+            }
+        }    }
+
+    /**
      * Send daily weather update if it is time to do so
      */
-
     private fun trySendDailyWeatherUpdate() {
         val updateTime = LocalTime.of(7, 0)
         if (LocalTime.now() == updateTime) {
@@ -53,14 +69,13 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     }
 
     private fun sendForecastUpdate(chatID: Int, forecast: Forecast) {
-        val forecastText = "##### Today's forecast report for ${forecast.weather.cityName} #####\n" +
-                "${forecast.getForecastReport()}"
+        val forecastText = forecast.getReportString()
         api.sendMessage(chatID, forecastText)
     }
 
-    private fun sendWeatherUpdate(chatID: Int, weather: Weather) {
-        val weatherText = "##### Today's weather report for ${weather.cityName} #####\n" +
-                "${weather.getWeatherReportString()}\n"
+    private fun sendWeatherUpdate(chatID: Int, currentWeather: CurrentWeather) {
+        val weatherText = "##### Today's weather report for ${currentWeather.cityName} #####\n" +
+                "${currentWeather.getWeatherReportString()}\n"
         api.sendMessage(chatID, weatherText)
     }
 
@@ -115,8 +130,11 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
                     sendWeatherUpdate(message.chat.id, weather)
                 }
             }
-            "forecast" -> {
-
+            "forecast", "forecast today" -> {
+                sendAllForecastsToUser(message.user.id, message.chat.id, LocalDate.now())
+            }
+            "forecast tomorrow" -> {
+                sendAllForecastsToUser(message.user.id, message.chat.id, LocalDate.now().plusDays(1))
             }
             in Location.AVAILABLE_LOCATIONS.keys -> {
                 if(!dbHandler.getSubscriptions().containsKey(message.user.id)) // Subscribe user if they are new
@@ -126,6 +144,30 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
             else -> {
                 sendMessage(message.chat, "I do not understand this command.")
             }
+        }
+    }
+
+    private fun sendAllForecastsToUser(userID: Int, chatID: Int, forecastDate: LocalDate) {
+        for (location in dbHandler.getSubscribedLocationsForUser(userID)) {
+            val forecast = weatherApi
+                    .getFiveDaysForecast(Location.AVAILABLE_LOCATIONS[location] ?: error("Location unknown"))
+            // Output weather data
+            sendWholeDayForecast(chatID, forecast, forecastDate)
+        }
+    }
+
+    private fun sendWholeDayForecast(chatID: Int, fiveDaysForecast: FiveDaysForecast, targetDate: LocalDate) {
+        val morningTime = LocalDateTime.of(targetDate, LocalTime.of(9, 0))
+        val afternoonTime = LocalDateTime.of(targetDate, LocalTime.of(15, 0))
+        val eveningTime = LocalDateTime.of(targetDate, LocalTime.of(21, 0))
+        val nightTime = LocalDateTime.of(targetDate.plusDays(1), LocalTime.of(0, 0))
+
+        val forecastTimes = listOf(morningTime, afternoonTime, eveningTime, nightTime)
+
+        api.sendMessage(chatID, "##### Forecast report for $targetDate for ${fiveDaysForecast.cityName} #####\n")
+
+        for (forecast in fiveDaysForecast.forecasts.filter { forecastTimes.contains(it.dateTime) }) {
+            sendForecastUpdate(chatID, forecast)
         }
     }
 

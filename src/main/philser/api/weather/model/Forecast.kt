@@ -1,24 +1,19 @@
 package philser.api.weather.model
 
 import org.json.JSONObject
-import philser.util.Utils
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
-class Forecast(forecastAPIObject: JSONObject) {
+class Forecast(forecastedWeatherObject: JSONObject) {
 
-    val weather: Weather = getWeatherFromForecast(forecastAPIObject)
+    val forecastedWeather: ForecastedWeather = ForecastedWeather(forecastedWeatherObject)
+    val epochDateTime: Int = forecastedWeatherObject["dt"] as Int
+    val dateTime: LocalDateTime = LocalDateTime.parse(forecastedWeatherObject["dt_txt"] as String, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 
-    private fun getWeatherFromForecast(forecastAPIObject: JSONObject): Weather {
-        val sunrise = Utils.epochToLocalDateTime((((forecastAPIObject["city"] as JSONObject)["sunrise"]) as Int).toLong(), "UTC")
-        val sunset = Utils.epochToLocalDateTime((((forecastAPIObject["city"] as JSONObject)["sunset"]) as Int).toLong(), "UTC")
-        val city = (forecastAPIObject["city"] as JSONObject)["name"] as String
-        return Weather(forecastAPIObject, city, sunrise, sunset)
-    }
-
-    val datetime: Int = forecastAPIObject["dt"] as Int
-    val datetimeString: String = forecastAPIObject["dt_text"] as String
-
-    fun getForecastReport(): String {
-        return weather.getWeatherReportString()
+    fun getReportString(): String {
+        val hour = if(dateTime.hour > 9) "${dateTime.hour}" else "0${dateTime.hour}"
+        val minute = if(dateTime.minute > 9) "${dateTime.minute}" else "0${dateTime.minute}"
+        return "----Weather at ${hour}:${minute}----\n" +
+                forecastedWeather.getWeatherReportString()
     }
 }
