@@ -30,30 +30,32 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
             handleUpdates(updates)
 
             // Fetch weather data for every location users have subscribed to
+            trySendDailyWeatherUpdate()
+        }
+    }
+
+    /**
+     * Send daily weather update if it is time to do so
+     */
+
+    private fun trySendDailyWeatherUpdate() {
+        val updateTime = LocalTime.of(7, 0)
+        if (LocalTime.now() == updateTime) {
             for (location in dbHandler.getSubscribedLocations()) {
                 val weather = weatherApi
                         .getCurrentWeather(Location.AVAILABLE_LOCATIONS[location] ?: error("Location unknown"))
                 // Output weather data
-                for (user in dbHandler.getSubscriptions()) {
-                    sendAutoWeatherUpdateIfAllowed(user.key, user.value, weather)
+                for (chatIdForUser in dbHandler.getSubscriptions()) {
+                    sendWeatherUpdate(chatIdForUser.value, weather)
                 }
             }
         }
     }
 
-    private fun sendAutoWeatherUpdateIfAllowed(userID: Int, chatID: Int, weather: CurrentWeather) {
-        val updateTime = LocalTime.of(7, 0)
-        if (LocalTime.now() == updateTime) {
-            sendWeatherUpdate(chatID, weather)
-        }
-    }
-
-    // TODO: Do not hardcode units
     private fun sendWeatherUpdate(chatID: Int, weather: CurrentWeather) {
         val weatherText = "##### Today's weather report for ${weather.cityName} #####\n" +
                 "-------- Currently:\n" +
                 "${weather.getWeatherReportString()}\n"
-                // TODO "-------- Today's forecast:"
         api.sendMessage(chatID, weatherText)
     }
 
