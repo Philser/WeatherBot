@@ -9,6 +9,7 @@ import philser.api.telegram.model.Message
 import philser.api.telegram.model.Update
 import philser.api.telegram.model.User
 import philser.api.weather.WeatherApi
+import philser.api.weather.model.Forecast
 import philser.api.weather.model.Weather
 import philser.api.weather.model.Location
 import java.time.LocalDateTime
@@ -20,7 +21,6 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     private var api = BotApi(apiToken)
     private var weatherApi = WeatherApi(weatherApiToken)
 
-    // TODO: Add some kind of time limit before next update
     fun runBot() {
         while (true) {
             // Poll for updates
@@ -52,9 +52,14 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
         }
     }
 
+    private fun sendForecastUpdate(chatID: Int, forecast: Forecast) {
+        val forecastText = "##### Today's forecast report for ${forecast.weather.cityName} #####\n" +
+                "${forecast.getForecastReport()}"
+        api.sendMessage(chatID, forecastText)
+    }
+
     private fun sendWeatherUpdate(chatID: Int, weather: Weather) {
         val weatherText = "##### Today's weather report for ${weather.cityName} #####\n" +
-                "-------- Currently:\n" +
                 "${weather.getWeatherReportString()}\n"
         api.sendMessage(chatID, weatherText)
     }
@@ -109,6 +114,9 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
                     // Output weather data
                     sendWeatherUpdate(message.chat.id, weather)
                 }
+            }
+            "forecast" -> {
+
             }
             in Location.AVAILABLE_LOCATIONS.keys -> {
                 if(!dbHandler.getSubscriptions().containsKey(message.user.id)) // Subscribe user if they are new

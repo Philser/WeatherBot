@@ -4,18 +4,44 @@ import org.json.JSONArray
 import org.json.JSONObject
 import philser.util.Utils
 import java.time.LocalDateTime
+import java.util.*
 
-class Weather(weatherObject: JSONObject) {
+class Weather {
 
-    val weather: WeatherType = WeatherType((weatherObject["weather"] as JSONArray)[0] as JSONObject)
-    val temperature: Double = (weatherObject["main"] as JSONObject)["temp"] as Double
-    val humidityPercent: Int = (weatherObject["main"] as JSONObject)["humidity"] as Int
-    val cloudiness: Int = (weatherObject["clouds"] as JSONObject)["all"] as Int
-    val visibilityMeters: Int? = if (weatherObject.has("visiblity")) weatherObject["visibility"] as Int else null
-    val wind: Wind = Wind(weatherObject["wind"] as JSONObject)
-    val cityName: String = weatherObject["name"] as String
-    val sunriseTime: LocalDateTime = Utils.epochToLocalDateTime(((weatherObject["sys"] as JSONObject)["sunrise"] as Int).toLong(), "UTC")
-    val sunsetTime: LocalDateTime = Utils.epochToLocalDateTime(((weatherObject["sys"] as JSONObject)["sunset"] as Int).toLong(), "UTC")
+    val weather: WeatherType
+    val temperature: Double
+    val humidityPercent: Int
+    val cloudiness: Int
+    val visibilityMeters: Int?
+    val wind: Wind
+    val cityName: String
+    val sunriseTime: LocalDateTime
+    val sunsetTime: LocalDateTime
+
+    constructor(weatherObject: JSONObject) {
+
+        weather = WeatherType((weatherObject["weather"] as JSONArray)[0] as JSONObject)
+        temperature = (weatherObject["main"] as JSONObject)["temp"] as Double
+        humidityPercent = (weatherObject["main"] as JSONObject)["humidity"] as Int
+        cloudiness = (weatherObject["clouds"] as JSONObject)["all"] as Int
+        visibilityMeters = if (weatherObject.has("visiblity")) weatherObject["visibility"] as Int else null
+        wind = Wind(weatherObject["wind"] as JSONObject)
+        cityName = weatherObject["name"] as String
+        sunriseTime = Utils.epochToLocalDateTime(((weatherObject["sys"] as JSONObject)["sunrise"] as Int).toLong(), "UTC")
+        sunsetTime = Utils.epochToLocalDateTime(((weatherObject["sys"] as JSONObject)["sunset"] as Int).toLong(), "UTC")
+    }
+
+    constructor(forecastWeatherObject: JSONObject, city: String, sunriseTime: LocalDateTime, sunsetTime: LocalDateTime) {
+        weather = WeatherType((forecastWeatherObject["weather"] as JSONArray)[0] as JSONObject)
+        temperature = (forecastWeatherObject["main"] as JSONObject)["temp"] as Double
+        humidityPercent = (forecastWeatherObject["main"] as JSONObject)["humidity"] as Int
+        cloudiness = (forecastWeatherObject["clouds"] as JSONObject)["all"] as Int
+        visibilityMeters = if (forecastWeatherObject.has("visiblity")) forecastWeatherObject["visibility"] as Int else null
+        wind = Wind(forecastWeatherObject["wind"] as JSONObject)
+        cityName = city
+        this.sunriseTime = sunriseTime
+        this.sunsetTime = sunsetTime
+    }
 
     fun getWeatherReportString(): String {
         return  "Weather: ${this.weather.description}\n" +
