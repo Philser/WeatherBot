@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import philser.api.weather.WeatherApi
 
-class CurrentWeather(weatherObject: JSONObject) {
+class Weather(weatherObject: JSONObject) {
 
     val weather: WeatherType = WeatherType((weatherObject["weather"] as JSONArray)[0] as JSONObject)
     val temperature: Double = (weatherObject["main"] as JSONObject)["temp"] as Double

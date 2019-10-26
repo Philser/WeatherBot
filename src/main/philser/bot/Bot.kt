@@ -9,7 +9,7 @@ import philser.api.telegram.model.Message
 import philser.api.telegram.model.Update
 import philser.api.telegram.model.User
 import philser.api.weather.WeatherApi
-import philser.api.weather.model.CurrentWeather
+import philser.api.weather.model.Weather
 import philser.api.weather.model.Location
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -52,7 +52,7 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
         }
     }
 
-    private fun sendWeatherUpdate(chatID: Int, weather: CurrentWeather) {
+    private fun sendWeatherUpdate(chatID: Int, weather: Weather) {
         val weatherText = "##### Today's weather report for ${weather.cityName} #####\n" +
                 "-------- Currently:\n" +
                 "${weather.getWeatherReportString()}\n"
