@@ -13,6 +13,7 @@ import philser.api.weather.model.Forecast
 import philser.api.weather.model.CurrentWeather
 import philser.api.weather.model.FiveDaysForecast
 import philser.api.weather.model.Location
+import philser.logger
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -22,8 +23,12 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
 
     private var api = BotApi(apiToken)
     private var weatherApi = WeatherApi(weatherApiToken)
+    private val logger by logger()
+
+
 
     fun runBot() {
+        logger.info("Starting bot")
         while (true) {
             // Poll for updates
             val updates: List<Update> = pollForUpdates()
@@ -43,13 +48,15 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     private fun trySendDailyForecast() {
         val updateTime = LocalTime.of(7, 0)
         if (LocalTime.now() == updateTime) {
+            logger.info("Sending daily forecasts")
             for (location in dbHandler.getSubscribedLocations()) {
                 // Output forecast
                 for (chatIdForUser in dbHandler.getSubscriptions()) {
                     sendAllForecastsToUser(chatIdForUser.key, chatIdForUser.value, LocalDate.now())
                 }
             }
-        }    }
+        }
+    }
 
     /**
      * Send daily weather update if it is time to do so
@@ -57,6 +64,7 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     private fun trySendDailyWeatherUpdate() {
         val updateTime = LocalTime.of(7, 0)
         if (LocalTime.now() == updateTime) {
+            logger.info("Sending daily weather updates")
             for (location in dbHandler.getSubscribedLocations()) {
                 val weather = weatherApi
                         .getCurrentWeather(Location.AVAILABLE_LOCATIONS[location] ?: error("Location unknown"))
@@ -70,12 +78,14 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
 
     private fun sendForecastUpdate(chatID: Int, forecast: Forecast) {
         val forecastText = forecast.getReportString()
+        logger.info("Sending forecast to {ChatID: $chatID}")
         api.sendMessage(chatID, forecastText)
     }
 
     private fun sendWeatherUpdate(chatID: Int, currentWeather: CurrentWeather) {
         val weatherText = "##### Today's weather report for ${currentWeather.cityName} #####\n" +
                 "${currentWeather.getWeatherReportString()}\n"
+        logger.info("Sending weather update to {ChatID: $chatID}")
         api.sendMessage(chatID, weatherText)
     }
 
@@ -115,11 +125,14 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     }
 
     private fun handleMessage(message: Message) {
-        when(message.text) {
-            "/start" -> {
+        if (message.text == null)
+            throw Exception("Error handling message: No text given")
+
+        when(message.text.toLowerCase()) {
+            "start" -> {
                 sendMessage(message.chat, subscribeUser(message.user, message.chat))
             }
-            "/stop" -> {
+            "stop" -> {
                 sendMessage(message.chat, unsubscribeUser(message.user))
             }
             "weather" -> {
@@ -149,6 +162,7 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
 
     private fun sendAllForecastsToUser(userID: Int, chatID: Int, forecastDate: LocalDate) {
         for (location in dbHandler.getSubscribedLocationsForUser(userID)) {
+            logger.info("Sending forecast to {UserID: $userID, ChatID: $chatID, Location: $location")
             val forecast = weatherApi
                     .getFiveDaysForecast(Location.AVAILABLE_LOCATIONS[location] ?: error("Location unknown"))
             // Output weather data
