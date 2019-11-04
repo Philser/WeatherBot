@@ -189,10 +189,13 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
         val location = Location.AVAILABLE_LOCATIONS.getValue(locationName)
 
         val subscribedLocations = dbHandler.getSubscribedLocationsForUser(user.id)
-        if (subscribedLocations.contains(location.city))
+        if (subscribedLocations.contains(location.city)) {
+            logger.info("User {UserID: ${user.id}} tried to subscribe to location $locationName but was already subscribed.")
             return "You are already subscribed to weather information for ${location.city}"
+        }
 
         dbHandler.addSubscribedLocation(user.id, location.city)
+        logger.info("User {UserID: ${user.id}} successfully subscribed to location $locationName.")
         return "You will now receive weather information for $location"
     }
 
@@ -228,6 +231,7 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
 
     private fun subscribeUser(user: User, chat: Chat): String {
         if (dbHandler.getSubscriptions().any { it.key == user.id }) {
+            logger.info("User {UserID: ${user.id}, ChatID: ${chat.id}} tried to subscribe but was already subscribed.")
             val locations = dbHandler.getSubscribedLocationsForUser(user.id)
             val locationsString = locations.joinToString(", ")
             return "You have already subscribed to the following locations: $locationsString\n" +
@@ -235,6 +239,7 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
                     "Available locations: " + Location.AVAILABLE_LOCATIONS.keys.joinToString(", ")
         }
 
+        logger.info("User {UserID: ${user.id}, ChatID: ${chat.id}} successfully subscribed.")
         dbHandler.addUser(user)
         dbHandler.addSubscription(user.id, chat.id)
         startLocationChoiceDialog(chat)
