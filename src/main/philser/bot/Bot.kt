@@ -91,20 +91,19 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
 
     private fun pollForUpdates(): List<Update> {
         val lastReceivedUpdate = dbHandler.getLastReceivedUpdateIDAndTime() ?: Pair(0, 0)
-        val lastID = lastReceivedUpdate.first
+        val beforeSevenDaysTime = LocalDateTime.now().minusDays(6) // After seven days the update IDs become random again
+
+        var lastID = lastReceivedUpdate.first
+
+        if(lastReceivedUpdate.second >= beforeSevenDaysTime.atZone(ZoneId.systemDefault()).toEpochSecond()) // Time has not expired, we still can filter by updateIDs
+            lastID = 0
+
         return api.getUpdates(lastID)
     }
 
     // TODO: Handle other events?
     private fun handleUpdates(updates: List<Update>) {
-        val lastProcessedUpdate = dbHandler.getLastReceivedUpdateIDAndTime() ?: Pair(0, 0) // Null if table is empty, set time to 0
-        var updatesToProcess = updates
-        val beforeSevenDaysTime = LocalDateTime.now().minusDays(6) // After seven days the update IDs become random again
-
-        if(lastProcessedUpdate.second >= beforeSevenDaysTime.atZone(ZoneId.systemDefault()).toEpochSecond()) // Time has not expired, we still can filter by updateIDs
-            updatesToProcess = updatesToProcess.filter { it.updateId > lastProcessedUpdate.first }
-
-        for (update in updatesToProcess) {
+        for (update in updates) {
             try {
                 if (update.message != null)
                     handleMessage(update.message)
