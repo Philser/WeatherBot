@@ -16,8 +16,9 @@ class BotApi(apiToken: String) {
 
     fun getUpdates(lastReceivedUpdateID: Int): List<Update> {
         val offset = lastReceivedUpdateID + 1
-        val url = BASE_URL + "getUpdates?offset=$offset"
-        val response = sendGet(url)
+        val timeout = 10.0
+        val url = BASE_URL + "getUpdates?offset=$offset&timeout=$timeout"
+        val response = sendGet(url, timeout)
         val updates: JSONArray = response["result"] as JSONArray
 
         return updates.map { Update(it as JSONObject) }
@@ -43,8 +44,12 @@ class BotApi(apiToken: String) {
     }
 
     fun sendGet(url: String): JSONObject {
+        return sendGet(url, 5.0)
+    }
+
+    fun sendGet(url: String, timeout: Double): JSONObject {
         logger.debug("Sending GET to $url")
-        val response = get(url).jsonObject
+        val response = get(url, timeout=timeout).jsonObject
         if (response["ok"] != true )
             throw Exception("Request failed: " + response["error_code"] + ": " + response["description"])
 
