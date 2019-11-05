@@ -90,12 +90,14 @@ class Bot(apiToken: String, weatherApiToken: String, private val dbHandler: DBHa
     }
 
     private fun pollForUpdates(): List<Update> {
-        return api.getUpdates()
+        val lastReceivedUpdate = dbHandler.getLastReceivedUpdateIDAndTime() ?: Pair(0, 0)
+        val lastID = lastReceivedUpdate.first
+        return api.getUpdates(lastID)
     }
 
     // TODO: Handle other events?
     private fun handleUpdates(updates: List<Update>) {
-        val lastProcessedUpdate = dbHandler.getLastReceivedUpdateIDAndTime() ?: Pair<Int, Int>(0, 0) // Null if table is empty, set time to 0
+        val lastProcessedUpdate = dbHandler.getLastReceivedUpdateIDAndTime() ?: Pair(0, 0) // Null if table is empty, set time to 0
         var updatesToProcess = updates
         val beforeSevenDaysTime = LocalDateTime.now().minusDays(6) // After seven days the update IDs become random again
 
